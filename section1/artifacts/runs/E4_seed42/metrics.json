@@ -1,0 +1,21 @@
+{
+  "experiment": "E4",
+  "seed": 42,
+  "val_accuracy": 0.9858,
+  "recall_cat_dog": [
+    0.9836,
+    0.988
+  ],
+  "confusion_matrix": [
+    [
+      2459,
+      41
+    ],
+    [
+      30,
+      2470
+    ]
+  ],
+  "best_epoch": 17,
+  "elapsed_seconds": 747.9815314540001
+}

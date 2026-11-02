@@ -1,0 +1,43 @@
+{
+  "data": "data/datasets",
+  "experiment": "E3",
+  "output": "/home/devcontainers/6483/cats-vs-dogs/section1/results/formal",
+  "seed": 42,
+  "epochs": 20,
+  "batch_size": 16,
+  "lr": 0.001,
+  "workers": 2,
+  "svm_c": 1.0,
+  "amp": true,
+  "exclude": "section1/artifacts/excluded_train.json",
+  "size": 224,
+  "class_to_idx": {
+    "cat": 0,
+    "dog": 1
+  },
+  "train_count": 19994,
+  "val_count": 5000,
+  "torch": "2.5.1+cu121",
+  "device": "NVIDIA GeForce RTX 3060 Laptop GPU",
+  "source_sha256": "d87cae7af2e70756816df33dc2ca563e9eb60c0c2295f17e2e5c1b36274bf5b8",
+  "protocol": {
+    "optimizer": "SGD",
+    "momentum": 0.9,
+    "weight_decay": 0.0001,
+    "scheduler": "CosineAnnealingLR",
+    "freeze": false,
+    "weights": "none",
+    "hog": {
+      "size": 128,
+      "orientations": 9,
+      "pixels_per_cell": [
+        16,
+        16
+      ],
+      "cells_per_block": [
+        2,
+        2
+      ]
+    }
+  }
+}

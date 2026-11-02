@@ -1,0 +1,27 @@
+[
+  {
+    "experiment": "E1",
+    "validation_predictions": 5000,
+    "accuracy_verified": true
+  },
+  {
+    "experiment": "E2",
+    "validation_predictions": 5000,
+    "accuracy_verified": true
+  },
+  {
+    "experiment": "E3",
+    "validation_predictions": 5000,
+    "accuracy_verified": true
+  },
+  {
+    "experiment": "E4",
+    "validation_predictions": 5000,
+    "accuracy_verified": true
+  },
+  {
+    "experiment": "E5",
+    "validation_predictions": 5000,
+    "accuracy_verified": true
+  }
+]

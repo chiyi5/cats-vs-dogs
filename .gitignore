@@ -1,0 +1,14 @@
+# Local datasets, downloaded weights and generated run artifacts
+data/
+dataset/
+section1/results/
+__pycache__/
+*.pyc
+*.pt
+*.pth
+*.joblib
+section1/documents/*.aux
+section1/documents/*.log
+section1/documents/*.out
+section1/documents/*.xdv
+section1/documents/*.synctex.gz
