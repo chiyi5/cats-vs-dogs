@@ -1,14 +1,18 @@
 # Local datasets, downloaded weights and generated run artifacts
 data/
 dataset/
+data/cifar10/
 section1/results/
+section2/results/
+section3/results/
+log/
 __pycache__/
 *.pyc
 *.pt
 *.pth
 *.joblib
-section1/documents/*.aux
-section1/documents/*.log
-section1/documents/*.out
-section1/documents/*.xdv
-section1/documents/*.synctex.gz
+section*/documents/*.aux
+section*/documents/*.log
+section*/documents/*.out
+section*/documents/*.xdv
+section*/documents/*.synctex.gz
