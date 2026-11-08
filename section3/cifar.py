@@ -71,8 +71,24 @@ def split_indices(total, val_size=VAL_SIZE, seed=SPLIT_SEED):
     return train_idx.tolist(), val_idx.tolist()
 
 
-def build_model(device):
+STEMS = ('imagenet', 'cifar')
+EXPERIMENT_STEMS = {'C1': 'imagenet', 'C2': 'cifar'}
+
+
+def build_model(device, stem='imagenet'):
+    """ResNet18 for 32x32 inputs.
+
+    'imagenet' keeps torchvision's 7x7 stride-2 conv + max-pool (C1, H0-H3): a 32x32 image
+    shrinks to 8x8 before layer1 and 1x1 at layer4.
+    'cifar' follows the CIFAR-10 design of He et al. (2016): a 3x3 stride-1 conv and no
+    max-pool, so layer1 sees 32x32 and layer4 sees 4x4 (C2).
+    """
+    if stem not in STEMS:
+        raise ValueError(f'stem must be one of {STEMS}')
     model = models.resnet18(weights=None, num_classes=NUM_CLASSES)
+    if stem == 'cifar':
+        model.conv1 = torch.nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
+        model.maxpool = torch.nn.Identity()
     return model.to(device)
 
 
@@ -85,7 +101,7 @@ def class_counts(labels, num_classes=NUM_CLASSES):
 
 def train_and_evaluate(train_view, eval_view, train_indices, val_indices, test_view,
                        method, out_dir, seed=42, epochs=30, batch_size=128,
-                       workers=2, lr=0.1, amp=False, extra_config=None):
+                       workers=2, lr=0.1, amp=False, extra_config=None, stem='imagenet'):
     """Train one CIFAR-10 run and write config/history/metrics into out_dir."""
     for name, value in [('epochs', epochs), ('batch_size', batch_size), ('lr', lr)]:
         if value <= 0:
@@ -135,7 +151,7 @@ def train_and_evaluate(train_view, eval_view, train_indices, val_indices, test_v
             val_dataset, batch_size=batch_size, shuffle=False, num_workers=workers,
             pin_memory=device.type == 'cuda', persistent_workers=workers > 0),
     }
-    model = build_model(device)
+    model = build_model(device, stem)
     optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=.9, weight_decay=5e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
     scaler = torch.amp.GradScaler('cuda', enabled=amp and device.type == 'cuda')
@@ -143,12 +159,12 @@ def train_and_evaluate(train_view, eval_view, train_indices, val_indices, test_v
     config = {
         'method': method, 'seed': seed, 'epochs': epochs, 'batch_size': batch_size,
         'lr': lr, 'val_size': len(val_indices), 'train_size': len(train_indices),
-        'class_counts': counts.tolist(),
+        'class_counts': counts.tolist(), 'amp': amp, 'workers': workers,
         'device': str(torch.cuda.get_device_name(0)) if torch.cuda.is_available() else 'cpu',
         'torch': torch.__version__, 'numpy': np.__version__,
         'split_seed': SPLIT_SEED,
         'protocol': {
-            'model': 'resnet18', 'weights': 'none (trained from scratch)',
+            'model': 'resnet18', 'stem': stem, 'weights': 'none (trained from scratch)',
             'optimizer': 'SGD', 'momentum': .9, 'weight_decay': 5e-4,
             'scheduler': 'CosineAnnealingLR', 'loss': method,
             'augmentation': ['RandomCrop(32, padding=4)', 'RandomHorizontalFlip'],
@@ -209,7 +225,7 @@ def train_and_evaluate(train_view, eval_view, train_indices, val_indices, test_v
             targets.extend(labels.tolist())
 
     metrics = {
-        'experiment': out_dir.name.split('_seed')[0], 'method': method, 'seed': seed,
+        'experiment': out_dir.name.split('_seed')[0], 'method': method, 'stem': stem, 'seed': seed,
         'test_accuracy': float(np.mean(np.array(predictions) == np.array(targets))),
         'per_class_recall': recall_score(targets, predictions, labels=list(range(NUM_CLASSES)),
                                          average=None, zero_division=0).tolist(),
@@ -228,7 +244,8 @@ def train_and_evaluate(train_view, eval_view, train_indices, val_indices, test_v
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('--experiment', default='C1', choices=['C1'])
+    # C1: ImageNet stem (baseline). C2: CIFAR stem (3x3 stride-1 conv, no max-pool).
+    p.add_argument('--experiment', default='C1', choices=sorted(EXPERIMENT_STEMS))
     p.add_argument('--seed', type=int, default=42)
     p.add_argument('--data', type=Path, default=Path('data/cifar10'))
     p.add_argument('--output', type=Path, default=Path('section3/results'))
@@ -245,7 +262,8 @@ def main():
     train_and_evaluate(train_view, eval_view, train_idx, val_idx, test_view,
                        method='none', out_dir=a.output / f'{a.experiment}_seed{a.seed}',
                        seed=a.seed, epochs=a.epochs, batch_size=a.batch_size,
-                       workers=a.workers, lr=a.lr, amp=a.amp)
+                       workers=a.workers, lr=a.lr, amp=a.amp,
+                       stem=EXPERIMENT_STEMS[a.experiment])
 
 
 if __name__ == '__main__':

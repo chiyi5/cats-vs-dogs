@@ -44,7 +44,8 @@ def copy_small_files(runs, artifacts):
 
 
 def plot_recall(runs, destination):
-    selected = [run for run in runs if run['experiment'] in ('H0', 'H1', 'H2', 'H3')]
+    # C1 is the balanced baseline; showing it next to H0-H3 makes the cost of imbalance visible.
+    selected = [run for run in runs if run['experiment'] in ('C1', 'H0', 'H1', 'H2', 'H3')]
     if not selected:
         return
     selected.sort(key=lambda run: run['experiment'])
@@ -52,13 +53,15 @@ def plot_recall(runs, destination):
     positions = np.arange(len(CIFAR_CLASSES))
     figure, axis = plt.subplots(figsize=(10, 4.5))
     for index, run in enumerate(selected):
-        axis.bar(positions + index * width, run['per_class_recall'], width,
-                 label=f"{run['experiment']} ({run['method']})")
+        is_baseline = run['experiment'] == 'C1'
+        label = 'C1 (balanced)' if is_baseline else f"{run['experiment']} ({run['method']})"
+        axis.bar(positions + index * width, run['per_class_recall'], width, label=label,
+                 color='#9a9a9a' if is_baseline else None)
     axis.set_xticks(positions + width * (len(selected) - 1) / 2)
     axis.set_xticklabels(CIFAR_CLASSES, rotation=30, ha='right')
     axis.set_ylabel('Per-class recall')
-    axis.set_ylim(0, 1.05)
-    axis.legend(fontsize=8)
+    axis.set_ylim(0, 1.12)
+    axis.legend(fontsize=8, ncol=len(selected), loc='upper center')
     figure.tight_layout()
     figure.savefig(destination, dpi=150)
     plt.close(figure)

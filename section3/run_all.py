@@ -10,7 +10,7 @@ DEFAULT_QUEUE = [('C1', 42), ('H0', 42), ('H1', 42), ('H2', 42)]
 
 
 def script_for(experiment):
-    return 'section3/cifar.py' if experiment == 'C1' else 'section3/imbalance.py'
+    return 'section3/cifar.py' if experiment in ('C1', 'C2') else 'section3/imbalance.py'
 
 
 def main():
