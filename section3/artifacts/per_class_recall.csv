@@ -9,6 +9,16 @@ C1,42,frog,0.89
 C1,42,horse,0.859
 C1,42,ship,0.895
 C1,42,truck,0.907
+C2,42,airplane,0.937
+C2,42,automobile,0.967
+C2,42,bird,0.896
+C2,42,cat,0.828
+C2,42,deer,0.943
+C2,42,dog,0.892
+C2,42,frog,0.954
+C2,42,horse,0.94
+C2,42,ship,0.956
+C2,42,truck,0.958
 H0,42,airplane,0.617
 H0,42,automobile,0.654
 H0,42,bird,0.44

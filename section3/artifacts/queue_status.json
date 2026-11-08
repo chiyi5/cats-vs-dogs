@@ -1,31 +1,13 @@
 {
   "state": "complete",
-  "started": "2026-11-07 09:34:26",
+  "started": "2026-11-08 18:10:02",
   "runs": [
     {
-      "experiment": "C1",
-      "seed": 42,
-      "status": "complete",
-      "returncode": 0
-    },
-    {
-      "experiment": "H0",
-      "seed": 42,
-      "status": "complete",
-      "returncode": 0
-    },
-    {
-      "experiment": "H1",
-      "seed": 42,
-      "status": "complete",
-      "returncode": 0
-    },
-    {
-      "experiment": "H2",
+      "experiment": "C2",
       "seed": 42,
       "status": "complete",
       "returncode": 0
     }
   ],
-  "finished": "2026-11-07 09:57:14"
+  "finished": "2026-11-08 18:20:04"
 }
