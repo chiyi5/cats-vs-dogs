@@ -15,13 +15,23 @@ FIELDS = ['experiment', 'method', 'seed', 'test_accuracy', 'macro_f1', 'val_accu
           'best_epoch', 'train_count', 'elapsed_seconds']
 
 
-def load_runs(runs_dir):
-    runs = []
-    for path in sorted(runs_dir.glob('*/metrics.json')):
-        metrics = json.loads(path.read_text())
-        metrics['_dir'] = path.parent
-        runs.append(metrics)
-    return runs
+def load_runs(runs_dir, archive_dir=None):
+    """Collect runs from the local results folder and the archived run records.
+
+    Each machine only holds the runs it trained itself, so the archive
+    (section3/artifacts/runs, committed to the repository) fills in the rest.
+    A local run replaces an archived run with the same experiment and seed.
+    """
+    found = {}
+    for source, archived in ((archive_dir, True), (runs_dir, False)):
+        if source is None or not source.exists():
+            continue
+        for path in sorted(source.glob('*/metrics.json')):
+            metrics = json.loads(path.read_text())
+            metrics['_dir'] = path.parent
+            metrics['_archived'] = archived
+            found[(metrics['experiment'], metrics['seed'])] = metrics
+    return [found[key] for key in sorted(found)]
 
 
 def write_csv(path, rows, fields):
@@ -94,11 +104,15 @@ def main():
     p.add_argument('--output', type=Path, default=Path('section3/artifacts'))
     a = p.parse_args()
 
-    runs = load_runs(a.runs)
+    runs = load_runs(a.runs, a.output / 'runs')
     if not runs:
-        raise SystemExit(f'no metrics.json under {a.runs}; run section3/run_all.py first')
+        raise SystemExit(f'no metrics.json under {a.runs} or {a.output / "runs"}; '
+                         'run section3/run_all.py first')
+    for run in runs:
+        origin = 'archive' if run['_archived'] else 'local'
+        print(f"using {run['experiment']}_seed{run['seed']} ({origin})")
 
-    copy_small_files(runs, a.output)
+    copy_small_files([run for run in runs if not run['_archived']], a.output)
     write_csv(a.output / 'results.csv', runs, FIELDS)
     recall_rows = []
     for run in runs:
