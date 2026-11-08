@@ -1,0 +1,23 @@
+{
+  "experiment": "M4",
+  "seed": 42,
+  "val_accuracy": 0.9918,
+  "recall_cat_dog": [
+    0.9888,
+    0.9948
+  ],
+  "confusion_matrix": [
+    [
+      2472,
+      28
+    ],
+    [
+      13,
+      2487
+    ]
+  ],
+  "best_epoch": 27,
+  "elapsed_seconds": 712.8514215210453,
+  "train_count": 19994,
+  "val_count": 5000
+}

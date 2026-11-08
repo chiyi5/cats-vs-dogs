@@ -1,0 +1,54 @@
+{
+  "state": "complete",
+  "started": "2026-11-07 09:24:53",
+  "runs": [
+    {
+      "experiment": "M0",
+      "seed": 42,
+      "status": "skipped"
+    },
+    {
+      "experiment": "M1",
+      "seed": 42,
+      "status": "complete",
+      "returncode": 0
+    },
+    {
+      "experiment": "M2",
+      "seed": 42,
+      "status": "complete",
+      "returncode": 0
+    },
+    {
+      "experiment": "M3",
+      "seed": 42,
+      "status": "complete",
+      "returncode": 0
+    },
+    {
+      "experiment": "M4",
+      "seed": 42,
+      "status": "complete",
+      "returncode": 0
+    },
+    {
+      "experiment": "MF",
+      "seed": 42,
+      "status": "complete",
+      "returncode": 0
+    },
+    {
+      "experiment": "MF",
+      "seed": 123,
+      "status": "complete",
+      "returncode": 0
+    },
+    {
+      "experiment": "MF",
+      "seed": 2026,
+      "status": "complete",
+      "returncode": 0
+    }
+  ],
+  "finished": "2026-11-07 10:25:51"
+}

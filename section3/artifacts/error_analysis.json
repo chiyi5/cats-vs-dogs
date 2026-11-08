@@ -1,0 +1,46 @@
+{
+  "predictions": "section2/results/MF_seed42/val_predictions.csv",
+  "val_count": 5000,
+  "wrong_count": 46,
+  "val_accuracy": 0.9908,
+  "selected": [
+    {
+      "path": "val/dog/dog.7332.jpg",
+      "true": "dog",
+      "pred": "cat",
+      "confidence": 0.999993
+    },
+    {
+      "path": "val/dog/dog.669.jpg",
+      "true": "dog",
+      "pred": "cat",
+      "confidence": 0.999974
+    },
+    {
+      "path": "val/cat/cat.7920.jpg",
+      "true": "cat",
+      "pred": "dog",
+      "confidence": 0.999716
+    },
+    {
+      "path": "val/cat/cat.9897.jpg",
+      "true": "cat",
+      "pred": "dog",
+      "confidence": 0.99966
+    },
+    {
+      "path": "val/cat/cat.100.jpg",
+      "true": "cat",
+      "pred": "cat",
+      "confidence": 1.0
+    },
+    {
+      "path": "val/cat/cat.1000.jpg",
+      "true": "cat",
+      "pred": "cat",
+      "confidence": 1.0
+    }
+  ],
+  "note": "test split has no labels; analysis is performed on the validation set",
+  "annotate": "fill the error_type column in error_cases.csv by hand"
+}

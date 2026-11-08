@@ -1,0 +1,38 @@
+{
+  "method": "none",
+  "seed": 42,
+  "epochs": 30,
+  "batch_size": 128,
+  "lr": 0.1,
+  "val_size": 5000,
+  "train_size": 45000,
+  "class_counts": [
+    4527,
+    4458,
+    4465,
+    4518,
+    4477,
+    4527,
+    4498,
+    4531,
+    4482,
+    4517
+  ],
+  "device": "NVIDIA L40S",
+  "torch": "2.11.0+cu128",
+  "numpy": "2.5.4",
+  "split_seed": 42,
+  "protocol": {
+    "model": "resnet18",
+    "weights": "none (trained from scratch)",
+    "optimizer": "SGD",
+    "momentum": 0.9,
+    "weight_decay": 0.0005,
+    "scheduler": "CosineAnnealingLR",
+    "loss": "none",
+    "augmentation": [
+      "RandomCrop(32, padding=4)",
+      "RandomHorizontalFlip"
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "experiment": "MF",
+  "seed": 123,
+  "val_accuracy": 0.9908,
+  "recall_cat_dog": [
+    0.9904,
+    0.9912
+  ],
+  "confusion_matrix": [
+    [
+      2476,
+      24
+    ],
+    [
+      22,
+      2478
+    ]
+  ],
+  "best_epoch": 2,
+  "elapsed_seconds": 479.12736315093935,
+  "train_count": 19994,
+  "val_count": 5000
+}

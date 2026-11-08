@@ -1,0 +1,7 @@
+path,true_label,pred_label,prob_dog,confidence,correctness,error_type
+val/dog/dog.7332.jpg,1,0,7e-06,0.999993,wrong,
+val/dog/dog.669.jpg,1,0,2.6e-05,0.999974,wrong,
+val/cat/cat.7920.jpg,0,1,0.999716,0.999716,wrong,
+val/cat/cat.9897.jpg,0,1,0.99966,0.99966,wrong,
+val/cat/cat.100.jpg,0,0,0.0,1.0,correct,
+val/cat/cat.1000.jpg,0,0,0.0,1.0,correct,

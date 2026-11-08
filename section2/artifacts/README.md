@@ -8,9 +8,11 @@
 | `results_summary.csv` | `summarize_results.py` | 按实验汇总的均值、标准差、最小/最大值 |
 | `validation_accuracy.png` | `summarize_results.py` | 各次运行的验证准确率柱状图 |
 | `learning_curves.png` | `summarize_results.py` | 各次运行的验证准确率曲线 |
-| `runs/<实验>_seed<种子>/` | `summarize_results.py`（从 `section2/results/` 复制） | `config.json`、`history.csv`、`metrics.json` |
+| `runs/<实验>_seed<种子>/` | `summarize_results.py`（从 `section2/results/` 复制） | `config.json`、`history.csv`、`metrics.json`、`val_predictions.csv` |
 | `submission.csv` | `predict.py` | 500 行 `id,label`，1=dog、0=cat |
-| `architecture.png` | 手动生成 | b) 要求的结构图 |
+| `architecture.png` | `architecture.py` | b) 要求的结构图 |
+| `model_summary.txt` | `architecture.py` | 逐层输出维度与参数量 |
+| `实验实测报告.md` | 手动撰写 | 结论、因素比较、复现与解释边界 |
 | `queue_status.json` | `run_all.py` | 队列执行状态 |
 
 不在此目录（默认被 Git 忽略）：`section2/results/` 下的权重 `best.pt` / `last.pt`、完整日志。

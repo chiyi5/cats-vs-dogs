@@ -1,0 +1,23 @@
+{
+  "experiment": "M3",
+  "seed": 42,
+  "val_accuracy": 0.9824,
+  "recall_cat_dog": [
+    0.9832,
+    0.9816
+  ],
+  "confusion_matrix": [
+    [
+      2458,
+      42
+    ],
+    [
+      46,
+      2454
+    ]
+  ],
+  "best_epoch": 20,
+  "elapsed_seconds": 457.59621574310586,
+  "train_count": 19994,
+  "val_count": 5000
+}

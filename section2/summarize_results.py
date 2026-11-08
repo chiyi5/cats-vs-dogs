@@ -44,7 +44,8 @@ def copy_small_files(runs, artifacts):
     for run in runs:
         dest = artifacts / 'runs' / run['_dir'].name
         dest.mkdir(parents=True, exist_ok=True)
-        for name in ('config.json', 'metrics.json', 'history.csv'):
+        for name in ('config.json', 'metrics.json', 'history.csv',
+                     'val_predictions.csv'):
             source = run['_dir'] / name
             if source.exists():
                 (dest / name).write_bytes(source.read_bytes())

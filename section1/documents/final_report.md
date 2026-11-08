@@ -1,0 +1,291 @@
+---
+title: "EE6483 Artificial Intelligence and Data Mining — Mini Project (Option 2)"
+subtitle: "Dogs vs. Cats classification, CIFAR-10 extension and class-imbalance analysis"
+date: "13 November 2026"
+---
+
+# Group members and contributions
+
+| Member | Contribution |
+|---|---|
+| LIU JIALE | Data audit and duplicate removal; comparative experiments E1–E5; literature survey |
+| ZHANG XUHUA | Main model; hyperparameter study M0–M4 and multi-seed runs MF; submission generation |
+| ZHU ZHENGSHUAI | CIFAR-10 experiments C1 and H0–H2; error analysis; result aggregation |
+
+All members reviewed the final report. Code and saved artefacts are shared in the group repository.
+
+# Abstract
+
+We build a cat/dog classifier from the course dataset and extend the study in three directions: a controlled comparison of training choices, an error analysis, and transfer to CIFAR-10 including a class-imbalance experiment. After excluding six redundant training images, an ImageNet-pretrained ResNet18 fine-tuned on 19,994 images reached **99.08% ± 0.00** validation accuracy over three seeds, and the selected model generated the required 500-row submission. A comparison of five pipelines showed that pretrained initialization mattered most (+5.88 percentage points over training from scratch), while mild augmentation and a longer schedule changed accuracy by less than one point. The same ResNet18 trained from scratch on CIFAR-10 reached **84.47%** test accuracy; under artificial class imbalance the test accuracy fell to 68.87%, and class weighting or minority resampling improved macro-F1 by about 2 points while trading majority-class recall for minority-class recall. All reported numbers come from saved run records; the test set of the dog/cat task is unlabelled, so no test accuracy can be claimed for it.
+
+# 1. Literature survey
+
+## 1.1 Problem definition and challenges
+
+Image classification maps an image $x$ to a label $y$ from a predefined label space. For Dogs vs. Cats the task is supervised binary classification with $\mathcal{Y}=\{\text{cat},\text{dog}\}$; the submission uses 0 for cat and 1 for dog [1]. The training and validation sets carry labels, whereas the 500 test images require predictions.
+
+The main difficulties are intra-class variation among breeds, visual similarity between some cats and small dogs, pose and scale changes, occlusion by objects or fences, varying image quality, background shortcuts, limited labelled data and possible distribution shift. High validation accuracy therefore does not by itself establish robustness to unknown classes or unseen domains.
+
+## 1.2 Learning settings
+
+**Supervised versus unsupervised or self-supervised.** Supervised learning optimises a loss on labelled pairs $(x_i,y_i)$, here cross-entropy. Self-supervised methods construct a training signal from the data itself and were reviewed as alternatives: SimCLR contrasts two augmented views [3], MAE reconstructs masked patches [4], and DINOv2 learns general-purpose features without labels [5]. These methods still require a supervised stage for the downstream classifier, and large-scale pretraining carries external data and compute costs. Because labelled cat/dog images are available, supervised fine-tuning is the direct route here.
+
+**Closed-set versus open-set.** This project requires every test image to be cat or dog, so it is closed-set binary classification. Open-set recognition additionally requires rejecting inputs from unknown classes [6]; a two-class softmax cannot guarantee that behaviour without a separate evaluation with unknown examples, which we do not perform.
+
+**Distribution shift.** Shift occurs when source and target differ in lighting, camera, background or breed. Domain adaptation may use target-domain information during development, whereas domain generalisation targets unseen domains without their data. The project defines no separate target domain, so validation accuracy must not be presented as out-of-domain generalisation.
+
+## 1.3 Representative work and baseline choice
+
+ResNet learns residual functions $y=F(x)+x$ through skip connections, which makes deeper convolutional networks easier to optimise [2]. ConvNeXt revisits convolution design under modern training recipes [8]. These works motivate comparing architectures together with training practices rather than assuming one architecture is universally best. Transfer-learning studies show that feature transferability depends on layer specificity and source–target similarity, and that benefits can persist after fine-tuning [7].
+
+We adopt an ImageNet-pretrained ResNet18 with a newly initialised two-output linear head as the baseline. It is small enough to fine-tune several times on available hardware, and the pretrained representation avoids learning all features from random initialisation. Our completed comparison supports the choice under the actual budget: pretrained fine-tuning reached 99.16% against 93.28% from random initialization. The adaptation consists of replacing the classification head, matching the input normalisation to the pretrained model, and optimising all layers on the target labels. This does not establish that full fine-tuning beats freezing the backbone; we test that question separately in Section 5, where freezing lost 0.92 points.
+
+# 2. Data
+
+## 2.1 Amount and split
+
+The supplied archive contains 20,000 training images (10,000 per class), 5,000 validation images (2,500 per class) and 500 unlabelled test images. All 25,500 images decoded as RGB. We kept the provided split instead of repartitioning, and fixed the label mapping cat = 0, dog = 1.
+
+SHA-256 hashes of all files revealed five groups of exact duplicates. One group contained a training image and a validation image; the other four were entirely inside training. We retained every validation image, dropped the training-side copy of the cross-split duplicate, and removed the remaining redundant training copies. Six training paths were excluded in total, leaving **19,994 training images (9,997 per class)** and **5,000 validation images**. Every experiment used the same lists, enforced through a shared exclusion manifest. Byte hashes cannot detect re-encoded or perceptually similar duplicates, and overlap with the ImageNet pretraining data was not audited.
+
+## 2.2 Pre-processing and augmentation
+
+For an output size $s$, the shorter image side is resized to $\operatorname{round}(256s/224)$ with aspect ratio preserved, then centre-cropped to $s \times s$; $s=224$ for the main experiments and $s=128$ for the resolution control. Tensors are normalised with the ImageNet mean $(0.485,0.456,0.406)$ and standard deviation $(0.229,0.224,0.225)$, matching the pretrained weights. Training adds a random horizontal flip ($p=0.5$) and a rotation sampled uniformly from $[-10^\circ,10^\circ]$; validation uses resize and crop only. Downscaling is permitted by the brief and reduces computation without changing image content.
+
+The 500 test images are transformed deterministically in the same way as validation images and were never used for training or model selection.
+
+# 3. Model and training strategy
+
+## 3.1 Architecture
+
+The classifier is torchvision ResNet18 (`ResNet18_IMAGENET1K_V1`) with its original 1,000-way fully connected layer replaced by a linear layer with two outputs. An input batch of size $B$ occupies $B \times 3 \times 224 \times 224$; the network returns $B \times 2$ logits. The total parameter count is 11,177,538. Figure 1 shows the block structure and the tensor shape after each stage; a per-layer table with output dimensions and parameter counts is included with the code.
+
+![Figure 1: ResNet18 classifier used for Dogs vs. Cats. Shapes are (channels, height, width) at the output of each stage.](../../section2/artifacts/architecture.png)
+
+## 3.2 Loss and optimisation
+
+Cross-entropy is applied directly to the logits, and predictions are their argmax. We use SGD with momentum 0.9 and weight decay $10^{-4}$, initial learning rate $10^{-3}$, cosine annealing to zero, batch size 16 and 20 epochs (30 in the schedule study M4). Automatic mixed precision with gradient scaling halves memory and roughly doubles throughput on the L40S. The best checkpoint by validation accuracy is saved; ties go to the earlier epoch.
+
+## 3.3 Reproducibility
+
+Python, NumPy and PyTorch seeds are fixed per run (42 for the main experiments, 42/123/2026 for the final configuration). cuDNN benchmarking is disabled and deterministic cuDNN behaviour is requested. These measures control the dominant sources of randomness but do not guarantee bitwise agreement across software and hardware combinations. The final configuration is repeated over three seeds and reported as mean ± standard deviation, as required for non-deterministic training.
+
+## 3.4 Code and how to run it
+
+The code is split into three parts: data audit and comparative experiments, the main model, and CIFAR-10 with the imbalance study. A full run needs an environment with PyTorch 2.11.0+cu128, torchvision 0.26.0+cu128, NumPy 2.5.4 and matplotlib; every run records its exact configuration.
+
+```bash
+# Dogs vs. Cats: prepare, train the queue, predict, summarise, draw the architecture
+python section2/prepare_data.py
+python section2/run_all.py --data data/datasets --amp --workers 4
+python section2/predict.py --run section2/results/MF_seed42 --data data/datasets \
+    --output section2/artifacts/submission.csv
+python section2/summarize_results.py
+python section2/architecture.py
+
+# CIFAR-10 and imbalance
+python section3/run_all.py --data data/cifar10 --amp --workers 4 \
+    --queue C1:42 H0:42 H1:42 H2:42
+python section3/summarize_results.py
+python section3/error_analysis.py \
+    --predictions section2/results/MF_seed42/val_predictions.csv \
+    --data data/datasets --output section3/artifacts
+```
+
+`run_all.py` reads each experiment configuration from the command line, skips runs that already have a `metrics.json`, and stops at the first failure. All runs in this report used the cluster command above.
+
+# 4. Hyperparameter study (c)
+
+We varied one factor at a time from the reference configuration M0 (= E1 from Section 6) with seed 42. All other settings — architecture, augmentation, optimiser, batch size, checkpoint rule — were held fixed.
+
+| ID | Change | Epochs | Validation accuracy |
+|---|---|---:|---:|
+| M0 | reference, lr $10^{-3}$ | 20 | 99.16% |
+| M1 | lr $10^{-4}$ | 20 | 99.08% |
+| M2 | lr $10^{-2}$ | 20 | 98.56% |
+| M3 | freeze the backbone, train the head only | 20 | 98.24% |
+| M4 | train for 30 epochs | 30 | 99.18% |
+
+Learning rate $10^{-3}$ was chosen because it sits between the two tested alternatives: $10^{-4}$ lost 0.08 points, consistent with slower convergence within the fixed epoch budget, while $10^{-2}$ lost 0.60 points, consistent with unstable optimisation of a pretrained network. Freezing the backbone was the most damaging change (0.92 points), which is why the final pipeline fine-tunes all layers. Extending training from 20 to 30 epochs changed accuracy by +0.02 points, so the shorter schedule is retained for the multi-seed runs. With 5,000 validation images one additional correct prediction changes accuracy by 0.02 points, so differences of a few images should not be over-interpreted; each of M0–M4 is a single run.
+
+# 5. Results and submission (d)
+
+## 5.1 Validation accuracy
+
+The final configuration MF equals M0 and was repeated over three seeds. It is the configuration that generates the submission.
+
+| Run | Validation accuracy | Cat recall | Dog recall | Best epoch |
+|---|---:|---:|---:|---:|
+| MF seed 42 | 99.08% | 98.96% | 99.20% | 19 |
+| MF seed 123 | 99.08% | 99.04% | 99.12% | 2 |
+| MF seed 2026 | 99.08% | 99.12% | 99.04% | 7 |
+| **Mean ± std** | **99.08% ± 0.00** | 99.04% ± 0.08 | 99.12% ± 0.08 | — |
+
+All three seeds produced the same validation accuracy (46 errors out of 5,000) although their best epochs differ. At this accuracy level the 5,000-image validation set no longer resolves seed-to-seed differences; a larger validation set or repeated evaluation would be needed to separate them.
+
+![Figure 2: Validation accuracy of the main-model experiments. Each bar is a single run; error bars are not shown because M0–M4 have one seed each.](../../section2/artifacts/validation_accuracy.png){width=80%}
+
+## 5.2 Test predictions and submission
+
+Since the test split has no labels, the model cannot be scored locally. We selected the run with the highest validation accuracy; as the three MF seeds tie at 99.08%, the rule "highest validation accuracy, ties broken by seed" selects `MF_seed42`. Its predictions form `submission.csv`: exactly 500 rows, ids 1–500, two columns `id,label`, with label 1 = dog and 0 = cat. The submitted distribution is 261 dogs and 239 cats.
+
+No test accuracy for Dogs vs. Cats can therefore be reported; validation accuracy is the only locally measurable estimate of generalisation.
+
+## 5.3 Relation to the earlier comparative experiments
+
+The reference configuration M0 reproduces experiment E1 exactly (99.16% against 99.16%, a difference of 0.00 points), which confirms that the data lists, split, preprocessing and selection rules agree between the two parts of the project. The final three-seed mean, 99.08%, is within 0.08 points of E1, so the choice of the final configuration does not depend on a lucky run.
+
+# 6. Effect of models and data processing (f)
+
+Section 1 of the project contains five controlled pipelines evaluated on the same cleaned data. The contrasts quantify how model and processing choices affect validation accuracy.
+
+| ID | Pipeline | Validation accuracy | Best epoch |
+|---|---|---:|---:|
+| E1 | ResNet18, ImageNet pretrained, flip + rotation, 224 px | 99.16% | 18 |
+| E2 | E1 without random augmentation | 99.18% | 6 |
+| E3 | ResNet18 trained from scratch, flip + rotation, 224 px | 93.28% | 18 |
+| E4 | E1 at 128 px input | 98.58% | 17 |
+| E5 | HOG features [9] + linear SVM [10] | 72.80% | — |
+
+Controlled differences relative to E1:
+
+| Contrast | Factor | Difference |
+|---|---|---:|
+| E1 − E2 | mild augmentation | −0.02 pp |
+| E1 − E3 | pretrained initialization | +5.88 pp |
+| E1 − E4 | 224 vs. 128 input resolution | +0.58 pp |
+| E1 − E5 | learned CNN vs. HOG + SVM pipeline | +26.36 pp |
+
+**Initialization is the dominant factor.** Removing ImageNet pretraining increased errors from 42 to 336 out of 5,000. The gain is conditional on the common 20-epoch budget and includes the benefit of external data; it is not evidence that a separately tuned scratch model could never catch up.
+
+**Augmentation produced no measurable gain in this comparison.** E2 was one image better than E1. We keep mild augmentation as a reasonable default but make no accuracy claim for it; a single seed, one augmentation policy and two transforms that were not ablated separately do not support a general conclusion.
+
+**Higher resolution helped modestly.** The 224-pixel model was 29 images better than the 128-pixel model, which is plausible given finer detail but not proven by these runs. The 128-pixel model still reached 98.58% and is a sensible option under tighter compute.
+
+**Classical features are far behind.** HOG features with a linear SVM [9, 10] lost 26.36 points, consistent with the value of learned representations here, although the comparison changes colour handling, feature learning and classifier together, so it isolates no single cause.
+
+Combined with the hyperparameter study, the practical recipe for this dataset is: pretrained ResNet18, full fine-tuning, $10^{-3}$ learning rate, 20 epochs, 224-pixel inputs, mild augmentation. Freezing, training from scratch, or a tenfold higher learning rate each cost between 0.6 and 5.9 points.
+
+![Figure 3: Validation accuracy of the five comparative pipelines. All runs use seed 42.](../artifacts/validation_accuracy.png){width=80%}
+
+# 7. Error analysis (e)
+
+Because the test images are unlabelled, error analysis is carried out on the 5,000 validation images using the predictions of `MF_seed42` (46 errors, 99.08%). The selected cases and their predictions are listed with the code and shown in Figure 4.
+
+![Figure 4: Selected correct and incorrect validation samples. Titles give true and predicted class with model confidence.](../../section3/artifacts/error_examples.png){width=58%}
+
+## 7.1 Incorrect cases
+
+1. **`dog/dog.7332.jpg`** — a black dog curled up on paving, photographed with the image rotated by 90°, was classified as a cat with confidence 0.99999. The unusual pose removes the cues the classifier relies on (upright body, head shape) and black fur gives little texture; the remaining silhouette is genuinely cat-like.
+2. **`dog/dog.669.jpg`** — a pale, small dog lying on paving, with another animal visible in the background, was classified as a cat with confidence 0.99997. The subject occupies a small part of the frame and is viewed from above, so the dog-specific body shape is weak while the background animal adds competing evidence.
+3. **`cat/cat.7920.jpg`** — a black cat lying immediately next to a large brown dog was classified as a dog with confidence 0.9997. Both animals are valid content; the dog is larger and more salient, and the model appears to respond to the dominant subject rather than the intended one.
+4. **`cat/cat.9897.jpg`** — an orange-and-white cat photographed through a chain-link fence was classified as a dog with confidence 0.9997. The dense grid fragments the outline and overlays strong high-frequency texture, which is a classic occlusion failure.
+
+## 7.2 Correct cases
+
+5. **`cat/cat.100.jpg`** — a small kitten held in a hand, facing the camera, was classified correctly with confidence 1.0. The face is clearly visible even though contextual information is missing.
+6. **`cat/cat.1000.jpg`** — a black-and-white kitten inside a cage was classified correctly with confidence 1.0. Cluttered metal bars in the background did not prevent recognition, showing that background noise is tolerated when the subject is centred and sharp.
+
+## 7.3 Strengths and weaknesses
+
+The model is extremely reliable for clear, centred, upright subjects: it reaches 99% validation accuracy and is fully confident on unambiguous images. Its failures cluster into three patterns — **unusual orientation or pose**, **multiple or background animals competing for attention**, and **strong occlusion**. All four errors were made with near-certain confidence, so confidence alone cannot flag them. A practical improvement would be test-time augmentation (for example, averaging predictions over flips and small rotations) to stabilise predictions against orientation, and hard-example augmentation during training. All ground-truth labels of the selected images were checked and are correct; none of the errors is label noise.
+
+# 8. CIFAR-10 (g)
+
+## 8.1 Dataset and problem
+
+CIFAR-10 [11] contains 60,000 colour images of 32 × 32 pixels in 10 classes: airplane, automobile, bird, cat, deer, dog, frog, horse, ship, truck. The official split provides 50,000 training and 10,000 test images; the test set is balanced and has labels, so test accuracy is directly measurable, unlike the dog/cat test split. We use a fixed internal split of the 50,000 training images into 45,000 for training and 5,000 for validation (seed 42); model selection uses only the internal validation set, and the official test set is evaluated once per configuration.
+
+The classes differ in several ways from Dogs vs. Cats: two animal classes are replaced by eight object and animal categories, images are 32 × 32 instead of 224 × 224, and intra-class variation is driven by viewpoint and object type rather than breed. Ten balanced classes also make a single accuracy number harder to interpret than in a binary task.
+
+## 8.2 Changes to the pipeline
+
+| Aspect | Dogs vs. Cats | CIFAR-10 |
+|---|---|---|
+| Input | 224 × 224 RGB | 32 × 32 RGB |
+| Classes | 2 | 10 |
+| Initialization | ImageNet pretrained | random (trained from scratch) |
+| Augmentation | flip + 10° rotation | RandomCrop(32, 4) + flip |
+| Batch size | 16 | 128 |
+| Initial learning rate | $10^{-3}$ | 0.1 |
+| Weight decay | $10^{-4}$ | $5\times10^{-4}$ |
+| Epochs | 20 | 30 |
+| Optimiser / schedule | SGD + cosine | SGD + cosine |
+
+Training from scratch is the natural choice at 32 pixels: ImageNet features are tuned to a much larger input and to natural-image textures, and the brief asks for the same algorithm to be adapted rather than for a second transfer-learning study. The smaller images allow a much larger batch, and the correspondingly larger learning rate follows the linear scaling rule.
+
+## 8.3 Results
+
+| Experiment | Data | Test accuracy | Macro-F1 | Internal val accuracy | Train images |
+|---|---|---:|---:|---:|---:|
+| C1 | full CIFAR-10 training split | **84.47%** | 0.8452 | 85.10% | 45,000 |
+| H0 | imbalanced subset, no correction | 68.87% | 0.6664 | 67.58% | 24,800 |
+
+C1 reaches 84.47% on the 10,000-image test set. This is slightly below the 85–92% reference range suggested in the project plan because the budget was limited to 30 epochs with no learning-rate search and no stronger augmentation; the same model remains a valid baseline for the imbalance study. Per-class recall varies from 69.3% (cat) to 91.0% (automobile), reflecting the visual difficulty of the animal classes at this resolution (Figure 5).
+
+# 9. Class imbalance (h)
+
+## 9.1 How imbalance is created
+
+Five classes (0–4: airplane, automobile, bird, cat, deer) are treated as minority classes and randomly subsampled to 10% of their images using a fixed seed (42). The remaining five classes (5–9) keep all examples. The resulting training set has 24,800 images with class counts 453, 446, 446, 452, 448, 4,527, 4,498, 4,531, 4,482, 4,517. The official test set is **not** subsampled, so any accuracy drop is caused by the training distribution rather than by the evaluation data.
+
+## 9.2 Two correction methods
+
+**H1 — weighted random sampling.** Each training image is drawn with probability proportional to the inverse class frequency, so minority images are repeated and majority images are seen less often per epoch. This changes the effective distribution seen by the loss without changing the loss itself. It is simple and model-agnostic, but the minority examples are repeated, which increases overfitting risk on the few available samples.
+
+**H2 — class-weighted cross-entropy.** The loss of each example is multiplied by a weight proportional to the inverse class frequency, normalised so the mean weight is one. This preserves the natural sampling of examples and instead tells the optimiser that errors on rare classes matter more. It costs nothing at the data level and is easy to add to any training loop, but it can over-emphasise tiny classes when their sample counts are extreme.
+
+Both approaches were trained with the C1 recipe on the same imbalanced subset; only the loss or sampler changes.
+
+## 9.3 Results and per-class effect
+
+| Experiment | Method | Test accuracy | Macro-F1 | Minority-class mean recall | Majority-class mean recall |
+|---|---|---:|---:|---:|---:|
+| H0 | none | 68.87% | 0.6664 | 46.54% | 91.20% |
+| H1 | weighted sampling | 70.03% | 0.6875 | 54.22% | 85.84% |
+| H2 | class-weighted CE | 69.00% | 0.6878 | 60.82% | 77.18% |
+
+Relative to H0, H1 raises minority recall by 7.68 points and lowers majority recall by 5.36 points; H2 raises minority recall by 14.28 points and lowers majority by 14.02 points. Both improve macro-F1 by about 2 points, while aggregate accuracy improves by only 1.16 (H1) and 0.13 (H2) points.
+
+![Figure 5: Per-class recall for the balanced baseline and the imbalance experiments.](../../section3/artifacts/per_class_recall.png)
+
+![Figure 6: Row-normalised confusion matrices for H0, H1 and H2.](../../section3/artifacts/confusion_matrices.png)
+
+## 9.4 Why aggregate accuracy hides the problem
+
+Under H0, the majority classes retain about 91% recall while the minority classes average 46.5%, and the cat class alone drops to 18.5%. A single accuracy number cannot reveal this: a model could reach 69% by being excellent on five classes and nearly ignoring the other five. Macro-F1, which averages per-class performance, drops from 0.845 (balanced C1) to 0.666 under H0 and recovers to about 0.688 under both corrections. When class costs are unequal, per-class recall and macro-F1 must be reported alongside accuracy.
+
+The trade-off is also visible: H2 gains the most minority recall but loses the most majority recall, which explains why its accuracy hardly moves. H1 is the milder intervention and gives a slightly better aggregate result. Neither approach closes the gap to the balanced experiment; the imbalance remains the dominant error source, and stronger remedies (hard-example mining, two-stage training, or generating synthetic minority samples) would be needed to recover more.
+
+# 10. Discussion and limitations
+
+- **Single-seed comparisons.** E1–E5 and M0–M4 were each run once; observed differences of a few images may not replicate. The final configuration is repeated over three seeds, but all three tie on validation accuracy, so the reported standard deviation is not evidence that runs are identical.
+- **Validation-based selection.** Checkpoints and the submission model were chosen on the validation set, so validation accuracy is optimistic relative to unseen data. Test accuracy cannot be computed for Dogs vs. Cats because labels are withheld.
+- **Duplicate detection.** SHA-256 hashes remove exact duplicates only; re-encoded or perceptually similar images could remain, and overlap with ImageNet pretraining data was not audited.
+- **Error analysis scope.** The analysis uses the validation set as a proxy for the test set; the two errors we discuss may not be representative of the 500 test images.
+- **Pretraining budget.** The advantage of pretraining, and the CIFAR-10 accuracy, are conditional on the chosen epochs, augmentation and learning rates; neither is an upper bound for the architectures.
+- **Imbalance study.** One seed per method; the direction of the trade-off is clear, but its size is exploratory.
+
+# 11. References
+
+[1] EE6483, *Mini Project (Option 2): Dogs vs. Cats*, assignment brief, 2026. Dataset and submission template supplied by the teaching team.
+
+[2] K. He, X. Zhang, S. Ren, and J. Sun, "Deep Residual Learning for Image Recognition," CVPR, 2016.
+
+[3] T. Chen, S. Kornblith, M. Norouzi, and G. Hinton, "A Simple Framework for Contrastive Learning of Visual Representations," ICML, 2020.
+
+[4] K. He et al., "Masked Autoencoders Are Scalable Vision Learners," CVPR, 2022.
+
+[5] M. Oquab et al., "DINOv2: Learning Robust Visual Features without Supervision," arXiv:2304.07193, 2023.
+
+[6] C. Geng, S.-J. Huang, and S. Chen, "Recent Advances in Open Set Recognition: A Survey," arXiv:1811.08581, 2018.
+
+[7] J. Yosinski, J. Clune, Y. Bengio, and H. Lipson, "How transferable are features in deep neural networks?" NeurIPS, 2014.
+
+[8] Z. Liu et al., "A ConvNet for the 2020s," CVPR, 2022.
+
+[9] N. Dalal and B. Triggs, "Histograms of Oriented Gradients for Human Detection," CVPR, 2005.
+
+[10] C. Cortes and V. Vapnik, "Support-vector networks," *Machine Learning*, vol. 20, pp. 273–297, 1995.
+
+[11] A. Krizhevsky, "Learning Multiple Layers of Features from Tiny Images," technical report, 2009.

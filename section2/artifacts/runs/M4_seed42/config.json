@@ -1,0 +1,42 @@
+{
+  "data": "data/datasets",
+  "experiment": "M4",
+  "seed": 42,
+  "output": "section2/results",
+  "exclude": "section1/artifacts/excluded_train.json",
+  "epochs": 30,
+  "lr": 0.001,
+  "batch_size": 16,
+  "workers": 4,
+  "amp": true,
+  "freeze": false,
+  "size": 224,
+  "class_to_idx": {
+    "cat": 0,
+    "dog": 1
+  },
+  "classes_present": [
+    "cat",
+    "dog"
+  ],
+  "train_count": 19994,
+  "val_count": 5000,
+  "torch": "2.11.0+cu128",
+  "torchvision": "0.26.0+cu128",
+  "numpy": "2.5.4",
+  "device": "NVIDIA L40S",
+  "source_sha256": "f43083aa041eb6f85ba8ee11faf43ae8e765abb4abec72bb1452c6bff0d770e2",
+  "protocol": {
+    "model": "resnet18",
+    "weights": "ResNet18_IMAGENET1K_V1",
+    "optimizer": "SGD",
+    "momentum": 0.9,
+    "weight_decay": 0.0001,
+    "scheduler": "CosineAnnealingLR",
+    "loss": "CrossEntropyLoss",
+    "augmentation": [
+      "RandomHorizontalFlip",
+      "RandomRotation(10)"
+    ]
+  }
+}
